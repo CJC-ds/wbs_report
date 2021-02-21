@@ -1,9 +1,10 @@
 import pandas as pd
-import numpy as np
+import re
 import requests as req
 from datetime import datetime
 from datetime import timedelta
 from typing import Union
+from stop_words import stop_words
 
 NASDAQ = 'http://ftp.nasdaqtrader.com/dynamic/SymDir/nasdaqlisted.txt'
 OTHERS = 'http://ftp.nasdaqtrader.com/dynamic/SymDir/otherlisted.txt'
@@ -15,6 +16,7 @@ nasdaq_tickers = nasdaq[nasdaq['ETF'] == 'N'].Symbol.tolist()
 # other = pd.read_csv(OTHERS, sep='|')
 # other.drop(other.shape[0]-1, inplace=True)
 # other_tickers = other[other['ETF'] == 'N'].Symbol.tolist()
+
 
 def convert_epoch_to_utc(epoch_time: str):
     """
@@ -96,37 +98,62 @@ def get_pushshift_data(
     return res.json()
 
 
-def main(*args, **kwargs):
-    ts = datetime.now() # The current time
-    td = timedelta(days=7) # A time difference of 7 days
-    t = ts - td # The time 7 days ago.
-    t_epoch_str = convert_utc_to_epoch(t)
-    json_data = get_pushshift_data(
-        comment=False,
-        show_uri=True,
-        metadata='false',
-        q='GME',
-        size=500,
-        fields='created_utc,retrieved_on,selftext,title,upvote_ratio,total_awards_received',
-        subreddit='wallstreetbets',
-        after=t_epoch_str
-    )
+def parse_pushshift_data(json_data: dict):
     df = pd.DataFrame(json_data['data'])
-    import re
     cash_tag_pattern = r'(?:\$|\#)([A-Za-z]+)'
     caps_pattern = r'(?<![A-Z])([A-Z]{3,4}?)(?![A-Za-z])'
     df['CASH_TAG'] = df.title.apply(lambda x: re.findall(cash_tag_pattern, x))
     df['POTENTIAL_CASH_TAG'] = df.title.apply(lambda x: re.findall(caps_pattern, x))
     df['CREATED_UTC'] = df.created_utc.apply(lambda x: convert_epoch_to_utc(x))
-    df.drop(df[(df['CASH_TAG'].str.len() == 0) & 
-            (df['POTENTIAL_CASH_TAG'].str.len() == 0)].index, inplace=True)
-    df[[
-         'CREATED_UTC'
-        ,'CASH_TAG'
-        ,'POTENTIAL_CASH_TAG'
-        ,'upvote_ratio'
-        ,'total_awards_received'
-    ]].to_csv('./data/test.csv', index=False)
+    df.drop(df[(df['CASH_TAG'].str.len() == 0)
+            & (df['POTENTIAL_CASH_TAG'].str.len() == 0)].index, inplace=True)
 
-if __name__=='__main__':
+    def make_upper(word_list):
+        return [tag.upper() for tag in word_list]
+    df.reset_index(drop=True, inplace=True)
+
+    df['CASH_TAG'] = df.CASH_TAG.apply(lambda x: make_upper(x))
+
+    def combine_tags(row):
+        return list(set(row['CASH_TAG'] + row['POTENTIAL_CASH_TAG']))
+
+    df['TAG_MERGE'] = df.apply(lambda x: combine_tags(x), axis=1)
+
+    def remove_stopwords(word_list):
+        global stop_words
+        return [word for word in word_list if word not in stop_words]
+
+    df['TAG_MERGE'] = df['TAG_MERGE'].apply(lambda x: remove_stopwords(x))
+    df.drop(df[df['TAG_MERGE'].str.len() == 0].index, inplace=True)
+    df.reset_index(inplace=True, drop=True)
+
+    df = df[[
+         'CREATED_UTC'
+         , 'TAG_MERGE'
+         , 'upvote_ratio'
+         , 'total_awards_received'
+    ]].explode('TAG_MERGE')
+    return df
+
+
+def main(*args, **kwargs):
+    ts = datetime.now()  # The current time
+    td = timedelta(days=7)  # A time difference of 7 days
+    t = ts - td  # The time 7 days ago.
+    t_epoch_str = convert_utc_to_epoch(t)
+    json_data = get_pushshift_data(
+        comment=False,
+        show_uri=True,
+        metadata='false',
+        size=500,
+        fields='created_utc,retrieved_on,selftext,title,upvote_ratio,total_awards_received',
+        subreddit='wallstreetbets',
+        after=t_epoch_str
+    )
+
+    df = parse_pushshift_data(json_data)
+    df.to_csv('./data/test.csv', index=False)
+
+
+if __name__ == '__main__':
     main()
