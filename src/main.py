@@ -130,8 +130,6 @@ def parse_pushshift_data(json_data: dict):
     df = df[[
          'CREATED_UTC'
          , 'TAG_MERGE'
-         , 'upvote_ratio'
-         , 'total_awards_received'
     ]].explode('TAG_MERGE')
     return df
 
@@ -152,7 +150,9 @@ def main(*args, **kwargs):
     )
 
     df = parse_pushshift_data(json_data)
-    df.to_csv('./data/test.csv', index=False)
+    d_pattern = '%y%m%d'
+    path_str = f'./data/{ts.strftime(d_pattern)}_{t.strftime(d_pattern)}.csv'
+    df.to_csv(path_str, index=False)
 
 
 if __name__ == '__main__':
