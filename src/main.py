@@ -102,16 +102,31 @@ def main(*args, **kwargs):
     t = ts - td # The time 7 days ago.
     t_epoch_str = convert_utc_to_epoch(t)
     json_data = get_pushshift_data(
-        comment=True,
+        comment=False,
         show_uri=True,
         metadata='false',
         q='GME',
         size=500,
-        fields='created_utc,retrieved_on,body',
+        fields='created_utc,retrieved_on,selftext,title,upvote_ratio,total_awards_received',
         subreddit='wallstreetbets',
         after=t_epoch_str
     )
-    print(json_data)
+    df = pd.DataFrame(json_data['data'])
+    import re
+    cash_tag_pattern = r'(?:\$|\#)([A-Za-z]+)'
+    caps_pattern = r'(?<![A-Z])([A-Z]{3,4}?)(?![A-Za-z])'
+    df['CASH_TAG'] = df.title.apply(lambda x: re.findall(cash_tag_pattern, x))
+    df['POTENTIAL_CASH_TAG'] = df.title.apply(lambda x: re.findall(caps_pattern, x))
+    df['CREATED_UTC'] = df.created_utc.apply(lambda x: convert_epoch_to_utc(x))
+    df.drop(df[(df['CASH_TAG'].str.len() == 0) & 
+            (df['POTENTIAL_CASH_TAG'].str.len() == 0)].index, inplace=True)
+    df[[
+         'CREATED_UTC'
+        ,'CASH_TAG'
+        ,'POTENTIAL_CASH_TAG'
+        ,'upvote_ratio'
+        ,'total_awards_received'
+    ]].to_csv('./data/test.csv', index=False)
 
-if __name__=='main':
+if __name__=='__main__':
     main()
