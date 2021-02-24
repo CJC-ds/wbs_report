@@ -1,10 +1,12 @@
 import pandas as pd
 import re
+import time
 import requests as req
 from datetime import datetime
 from datetime import timedelta
 from typing import Union
 from stop_words import stop_words
+import constant
 
 NASDAQ = 'http://ftp.nasdaqtrader.com/dynamic/SymDir/nasdaqlisted.txt'
 OTHERS = 'http://ftp.nasdaqtrader.com/dynamic/SymDir/otherlisted.txt'
@@ -99,9 +101,24 @@ def get_pushshift_data(
 
 
 def parse_pushshift_data(json_data: dict):
+    """
+    Take the raw PushShift data and parses it into a pandas.DataFrame
+    
+    Parameters
+    ----------
+    json_data (dict):
+        The raw json data retrieved from PushShift API as a dictionary object.
+        The json data must contain the fields 'title' and 'created_utc'.
+
+    Returns
+    -------
+    df (pandas.DataFrame):
+        A DataFrame object.
+    """
     df = pd.DataFrame(json_data['data'])
-    cash_tag_pattern = r'(?:\$|\#)([A-Za-z]+)'
-    caps_pattern = r'(?<![A-Z])([A-Z]{3,4}?)(?![A-Za-z])'
+    cash_tag_pattern = r'(?:\$)([A-Za-z]+)'
+    caps_pattern = r'(?<![A-Z_])([A-Z]{3,4}?)(?![A-Za-z_])'
+    # print(df.shape)
     df['CASH_TAG'] = df.title.apply(lambda x: re.findall(cash_tag_pattern, x))
     df['POTENTIAL_CASH_TAG'] = df.title.apply(lambda x: re.findall(caps_pattern, x))
     df['CREATED_UTC'] = df.created_utc.apply(lambda x: convert_epoch_to_utc(x))
@@ -134,24 +151,101 @@ def parse_pushshift_data(json_data: dict):
     return df
 
 
+def get_start_date(end_day: datetime = datetime.now(),
+     timeframe_days: int = 7, str_fmt_date: bool = False):
+    """
+    Finds the start day given a timeframe and the end day.
+    Args:
+        end_day (datetime, optional): 
+            The ending date. Defaults to datetime.now().
+        timeframe_days (int, optional): 
+            The time difference in days between end date and start date. Defaults to 7.
+        str_fmt_date (bool, optional):
+            When true, returns the end date as a datetime object,
+            or when false, a string with the format '%y-%m-%d'. Defaults to True.
+
+    Returns:
+        datetime, str: the start date.
+    """
+    time_difference = timedelta(days=timeframe_days)
+    start_day = end_day - time_difference
+    if str_fmt_date == True:
+        return convert_utc_to_epoch(start_day)
+    else:
+        return start_day
+    
+
+def iterate_get_pushift_data(comment: bool = False, show_uri: bool = True,
+                             timeframe_days: int = 7, **kwargs):
+    """
+    The PushShift API only allows retriving 100 submissions at a time.
+    This function iterates through chunks (100 in size) of data retrieved from the API then
+    concatenates the results into a single DataFrame.
+    Parameters:
+    -----------
+        comment (bool, optional): 
+            When true, comments are retrieved.
+            When false, submission are retrieved. Defaults to False.
+        show_uri (bool, optional): 
+            When true, prints the URI to console.
+            When false, URI is silenced. Defaults to True.
+        timeframe_days (int, optional):
+            How far back (in days) we start retrieving our data.
+    Returns:
+        pandas.DataFrame: The result table after concatenation.
+    """
+    start_date = get_start_date(timeframe_days=timeframe_days)
+    start_date_str = convert_utc_to_epoch(start_date)
+    max_date = start_date_str
+
+    # Make a container to store all the DataFrames.
+    dfs = []
+
+    # Maximum query size is 100
+    q_size = constant.API_QUERY_SIZE
+    
+    # Iteratively make the query; if API error response, retry in 10 seconds
+    while(q_size==constant.API_QUERY_SIZE):
+        while True:
+            try:
+                json_data = get_pushshift_data(comment=comment, show_uri=show_uri,
+                                            after=max_date, **kwargs) 
+                if len(json_data['data']) != 0:
+                    max_date = max([sub['created_utc'] for sub in json_data['data']])
+                    q_size = len(json_data['data'])
+                    df = parse_pushshift_data(json_data)
+                    dfs.append(df)
+                else:
+                    q_size = 0
+            except Exception as e:
+                print(e)
+                print('Retry in 5 seconds...')
+                time.sleep(5)
+                continue
+            break
+    
+    return pd.concat(dfs, ignore_index=True)
+
+
 def main(*args, **kwargs):
-    ts = datetime.now()  # The current time
-    td = timedelta(days=7)  # A time difference of 7 days
-    t = ts - td  # The time 7 days ago.
-    t_epoch_str = convert_utc_to_epoch(t)
-    json_data = get_pushshift_data(
+    timeframe = 7
+
+    df = iterate_get_pushift_data(
         comment=False,
         show_uri=True,
+        timeframe_days=timeframe,
         metadata='false',
-        size=500,
+        size=100,
         fields='created_utc,retrieved_on,selftext,title,upvote_ratio,total_awards_received',
         subreddit='wallstreetbets',
-        after=t_epoch_str
+        sort='asc',
+        sort_type='created_utc'
     )
 
-    df = parse_pushshift_data(json_data)
+    start_date = get_start_date(timeframe_days=timeframe)
+    end_date = datetime.now()
     d_pattern = '%y%m%d'
-    path_str = f'./data/{ts.strftime(d_pattern)}_{t.strftime(d_pattern)}.csv'
+    path_str = f'./data/{start_date.strftime(d_pattern)}_{end_date.strftime(d_pattern)}_raw.csv'
     df.to_csv(path_str, index=False)
 
 
