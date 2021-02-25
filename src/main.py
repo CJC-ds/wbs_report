@@ -5,20 +5,17 @@ import requests as req
 from datetime import datetime
 from datetime import timedelta
 from typing import Union
-from stop_words import stop_words
 import constant
 
-NASDAQ = 'http://ftp.nasdaqtrader.com/dynamic/SymDir/nasdaqlisted.txt'
-OTHERS = 'http://ftp.nasdaqtrader.com/dynamic/SymDir/otherlisted.txt'
-
-nasdaq = pd.read_csv(NASDAQ, sep='|')
+nasdaq = pd.read_csv(constant.NASDAQ, sep='|')
 nasdaq.drop(nasdaq.shape[0]-1, inplace=True)
 nasdaq_tickers = nasdaq[nasdaq['ETF'] == 'N'].Symbol.tolist()
 
-# other = pd.read_csv(OTHERS, sep='|')
-# other.drop(other.shape[0]-1, inplace=True)
-# other_tickers = other[other['ETF'] == 'N'].Symbol.tolist()
+other = pd.read_csv(constant.OTHERS, sep='|')
+other.drop(other.shape[0]-1, inplace=True)
+other_tickers = other[other['ETF'] == 'N']['NASDAQ Symbol'].tolist()
 
+nasdaq_tickers.extend(other_tickers)
 
 def convert_epoch_to_utc(epoch_time: str):
     """
@@ -136,11 +133,15 @@ def parse_pushshift_data(json_data: dict):
 
     df['TAG_MERGE'] = df.apply(lambda x: combine_tags(x), axis=1)
 
-    def remove_stopwords(word_list):
-        global stop_words
-        return [word for word in word_list if word not in stop_words]
+    def remove_nontickers(word_list):
+        return [word for word in word_list if word in nasdaq_tickers]
 
+    def remove_stopwords(word_list):
+        return [word for word in word_list if word not in constant.STOPWORDS]
+
+    df['TAG_MERGE'] = df['TAG_MERGE'].apply(lambda x: remove_nontickers(x))
     df['TAG_MERGE'] = df['TAG_MERGE'].apply(lambda x: remove_stopwords(x))
+
     df.drop(df[df['TAG_MERGE'].str.len() == 0].index, inplace=True)
     df.reset_index(inplace=True, drop=True)
 
@@ -245,7 +246,7 @@ def main(*args, **kwargs):
     start_date = get_start_date(timeframe_days=timeframe)
     end_date = datetime.now()
     d_pattern = '%y%m%d'
-    path_str = f'./data/{start_date.strftime(d_pattern)}_{end_date.strftime(d_pattern)}_raw.csv'
+    path_str = f'./data/raw/{start_date.strftime(d_pattern)}_{end_date.strftime(d_pattern)}_raw.csv'
     df.to_csv(path_str, index=False)
 
 
