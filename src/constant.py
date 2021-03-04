@@ -11,4 +11,5 @@ STOPWORDS = [
     , 'NEXT'
     , 'NOW'
     , 'BIG'
+    , 'LOVE'
 ]
