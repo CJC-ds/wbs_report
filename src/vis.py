@@ -12,6 +12,7 @@ delta7 = timedelta(days=7)
 
 today_delta7 = today - delta7
 today_delta7_str = datetime.strftime(today_delta7, '%y%m%d')
+today_delta7_str_hr = datetime.strftime(today_delta7, '%Y-%m-%d')
 
 df = pd.read_csv(f'./data/raw/{today_delta7_str}_{today_str}_raw.csv')
 df['CREATED_UTC'] = pd.to_datetime(df.CREATED_UTC, infer_datetime_format=True)
@@ -39,10 +40,11 @@ fig, ax = plt.subplots()
 #     plt.text(xlocs[i] - 0.25, v + 0.01, str(v))
 y = df20.TAG_MERGE.value_counts().sort_values(ascending=True)
 y.plot(kind='barh', figsize=(12, 12), ax=ax,
-       title=f'Top20 stocks mentioned in r/WallStreetBets posts.\n(In the last 7 days ending {today_str_hr})')
+       title=f'Top20 stocks mentioned in r/WallStreetBets posts.\n(In the last 7 days\n{today_delta7_str_hr} to {today_str_hr})')
 y_list = y.values.tolist()
 _, xmax = plt.xlim()
 plt.xlim(0, xmax+300)
 for i, v in enumerate(y_list):
     ax.text(v + 100, i, str(v), color='black', fontweight='bold', ha='left', fontsize=14, va='center')
+plt.savefig(f'./plots/{today_str_hr}.png')
 plt.show()
