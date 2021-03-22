@@ -17,6 +17,35 @@ other_tickers = other[other['ETF'] == 'N']['NASDAQ Symbol'].tolist()
 
 nasdaq_tickers.extend(other_tickers)
 
+def create_folders():
+    """
+    Creates folders to organise our project tree.
+    """
+    import os
+    raw_data_path = os.path.join('data', 'raw')
+    if not os.path.isfile(raw_data_path):
+        try:
+            os.makedirs(raw_data_path)
+        except Exception as e:
+            print(e)
+    else:
+        pass
+    
+    pro_data_path = os.path.join('data', 'processed')
+    if not os.path.isfile(pro_data_path):
+        try:
+            os.makedirs(pro_data_path)
+        except Exception as e:
+            print(e)
+
+    plot_path = os.path.join('plots')
+    if not os.path.isfile(plot_path):
+        try:
+            os.makedirs(plot_path)
+        except Exception as e:
+            print(e)
+
+
 def convert_epoch_to_utc(epoch_time: str):
     """
     Converts epoch time to a datetime.datetime object.
@@ -229,7 +258,8 @@ def iterate_get_pushift_data(comment: bool = False, show_uri: bool = True,
 
 
 def main(*args, **kwargs):
-    timeframe = 7
+    timeframe = constant.TIMEFRAME
+    create_folders()
 
     df = iterate_get_pushift_data(
         comment=False,
