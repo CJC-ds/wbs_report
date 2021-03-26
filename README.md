@@ -1,5 +1,10 @@
 # wsb_report
 
+## Update 2021-03-26
+
+The PushShift API has stopped pulling reddit data after '2021-03-19';
+This project will not continue to work until the author of [PushShift.io](https://github.com/pushshift/api/issues) fixes it.
+
 ## About
 
 This project aims to retrieve user generated data on [r/WallStreetBets](https://www.reddit.com/r/wallstreetbets/)
