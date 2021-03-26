@@ -205,7 +205,7 @@ def get_start_date(end_day: datetime = datetime.now(),
         return start_day
     
 
-def iterate_get_pushift_data(comment: bool = False, show_uri: bool = True,
+def iterate_get_pushshift_data(comment: bool = False, show_uri: bool = True,
                              timeframe_days: int = 7, **kwargs):
     """
     The PushShift API only allows retriving 100 submissions at a time.
@@ -261,13 +261,13 @@ def main(*args, **kwargs):
     timeframe = constant.TIMEFRAME
     create_folders()
 
-    df = iterate_get_pushift_data(
+    df = iterate_get_pushshift_data(
         comment=False,
         show_uri=True,
         timeframe_days=timeframe,
         metadata='false',
         size=100,
-        fields='created_utc,retrieved_on,selftext,title,upvote_ratio,total_awards_received',
+        fields='created_utc,retrieved_on,selftext,title',
         subreddit='wallstreetbets',
         sort='asc',
         sort_type='created_utc'
