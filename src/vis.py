@@ -12,7 +12,7 @@ today_str_hr = datetime.strftime(today, '%Y-%m-%d')
 
 delta = timedelta(days=constant.TIMEFRAME)
 
-today_delta = today - delta7
+today_delta = today - delta
 today_delta_str = datetime.strftime(today_delta, '%y%m%d')
 today_delta_str_hr = datetime.strftime(today_delta, '%Y-%m-%d')
 
