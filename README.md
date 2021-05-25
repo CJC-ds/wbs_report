@@ -1,9 +1,6 @@
 # wsb_report
 
-## Update 2021-03-26
-
-The PushShift API has stopped pulling reddit data after '2021-03-19';
-This project will not continue to work until the author of [PushShift.io](https://github.com/pushshift/api/issues) fixes it.
+## Last update 2021-05-26
 
 ## About
 
@@ -46,3 +43,7 @@ to determine the popular stock picks and the sentiments behind them.
     Running this script will find the stored data (default: csv file), and output some visualizations for the retrieved data.
 
     Currently a horizontal bar chart is generated to show the number of post mentions for the top20 stocks within the last 7 days.
+
+## Example output
+
+![plots/2021-05-25.png]
