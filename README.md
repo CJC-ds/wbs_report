@@ -46,4 +46,4 @@ to determine the popular stock picks and the sentiments behind them.
 
 ## Example output
 
-![plots/2021-05-25.png]
+![plot example](/plots/2021-05-25.png)
